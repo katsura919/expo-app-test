@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { storage } from '@/lib/storage';
 import { genId } from '@/lib/utils';
 import type { Task } from '@/lib/types';
+import { useApp } from './AppContext';
 
 interface TasksContextValue {
   tasks: Task[];
@@ -14,6 +15,7 @@ interface TasksContextValue {
 const TasksContext = createContext<TasksContextValue | null>(null);
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
+  const { checkStreak } = useApp();
   const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
@@ -40,6 +42,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function toggleTask(id: string) {
+    const task = tasks.find((t) => t.id === id);
+    const completing = !task?.completedAt;
+
     await save(
       tasks.map((t) =>
         t.id === id
@@ -47,6 +52,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           : t
       )
     );
+
+    if (completing) checkStreak();
   }
 
   return (

@@ -1,4 +1,5 @@
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { router } from 'expo-router';
+import { View, Text, Pressable, ScrollView, TextInput } from 'react-native';
 import {
   Check,
   Square,
@@ -10,11 +11,13 @@ import {
   Zap,
   Star,
   CheckSquare,
+  Pencil,
 } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState } from 'react';
 import { useTasks } from '@/store/TasksContext';
 import { useApp } from '@/store/AppContext';
+import { useFocus } from '@/store/FocusContext';
 
 const C = {
   bg: '#FFFDF5',
@@ -136,13 +139,138 @@ function TaskRow({
   );
 }
 
+function DailyGoalCard() {
+  const { todayGoal, setTodayGoal, completeTodayGoal } = useApp();
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState('');
+  const done = !!todayGoal?.completedAt;
+
+  async function handleSet() {
+    if (!input.trim()) return;
+    await setTodayGoal(input.trim().toUpperCase());
+    setEditing(false);
+    setInput('');
+  }
+
+  return (
+    <View
+      style={{
+        backgroundColor: C.yellow,
+        borderWidth: 4,
+        borderColor: C.black,
+        padding: 20,
+        gap: 16,
+        // @ts-ignore
+        boxShadow: '8px 8px 0px 0px #000000',
+        transform: [{ rotate: '-0.5deg' }],
+      }}
+    >
+      {/* Header */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Target size={18} color={C.black} strokeWidth={3} />
+          <Text style={{ fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 2.5, color: C.black }}>
+            TODAY'S FOCUS
+          </Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {todayGoal && !editing && (
+            <Pressable
+              onPress={() => { setInput(todayGoal.text); setEditing(true); }}
+              style={{ borderWidth: 2, borderColor: C.black, padding: 4 }}
+            >
+              <Pencil size={12} color={C.black} strokeWidth={3} />
+            </Pressable>
+          )}
+          <View style={{
+            borderWidth: 3,
+            borderColor: C.black,
+            backgroundColor: done ? C.black : C.red,
+            paddingHorizontal: 8,
+            paddingVertical: 3,
+            transform: [{ rotate: '1.5deg' }],
+          }}>
+            <Text style={{ fontWeight: '900', fontSize: 9, textTransform: 'uppercase', letterSpacing: 2, color: C.white }}>
+              {done ? 'DONE' : 'ACTIVE'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Goal content */}
+      {editing || !todayGoal ? (
+        <View style={{ gap: 10 }}>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder="ENTER YOUR MAIN QUEST..."
+            placeholderTextColor="rgba(0,0,0,0.4)"
+            autoFocus={editing}
+            onSubmitEditing={handleSet}
+            returnKeyType="done"
+            style={{
+              fontWeight: '900',
+              fontSize: 20,
+              color: C.black,
+              letterSpacing: -0.5,
+              textTransform: 'uppercase',
+              borderBottomWidth: 3,
+              borderBottomColor: C.black,
+              paddingBottom: 8,
+            }}
+          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable onPress={handleSet} style={{ flex: 1 }}>
+              <View style={{
+                borderWidth: 4, borderColor: C.black, backgroundColor: C.black,
+                paddingVertical: 12, alignItems: 'center',
+              }}>
+                <Text style={{ fontWeight: '900', fontSize: 12, color: C.yellow, textTransform: 'uppercase', letterSpacing: 2 }}>
+                  SET GOAL
+                </Text>
+              </View>
+            </Pressable>
+            {editing && (
+              <Pressable onPress={() => setEditing(false)}>
+                <View style={{ borderWidth: 4, borderColor: C.black, backgroundColor: 'transparent', paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' }}>
+                  <Text style={{ fontWeight: '900', fontSize: 12, color: C.black, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    CANCEL
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      ) : (
+        <>
+          <Pressable onPress={completeTodayGoal}>
+            <Text style={{
+              fontWeight: '900',
+              fontSize: 26,
+              color: C.black,
+              letterSpacing: -1,
+              lineHeight: 30,
+              textTransform: 'uppercase',
+              textDecorationLine: done ? 'line-through' : 'none',
+              opacity: done ? 0.5 : 1,
+            }}>
+              {todayGoal.text}
+            </Text>
+          </Pressable>
+          <StartSessionButton />
+        </>
+      )}
+    </View>
+  );
+}
+
 function StartSessionButton() {
   const [pressed, setPressed] = useState(false);
   return (
     <Pressable
       onPressIn={() => setPressed(true)}
       onPressOut={() => setPressed(false)}
-      onPress={() => {}}
+      onPress={() => router.push('/(tabs)/focus')}
     >
       <View
         style={{
@@ -182,6 +310,7 @@ function StartSessionButton() {
 export default function Dashboard() {
   const { tasks, toggleTask } = useTasks();
   const { appState } = useApp();
+  const { totalFocusMinutes, todaySessions } = useFocus();
 
   const today = new Date();
   const dateStr = `${DAY_NAMES[today.getDay()]} ${today.getDate()} ${MONTH_NAMES[today.getMonth()]}`;
@@ -189,9 +318,9 @@ export default function Dashboard() {
   const doneCount = tasks.filter((t) => !!t.completedAt).length;
   const total = tasks.length;
   const progress = total > 0 ? Math.round((doneCount / total) * 100) : 0;
-  const focusHrs = appState.totalFocusMinutes > 0
-    ? `${Math.floor(appState.totalFocusMinutes / 60)}H`
-    : '0H';
+  const focusHrs = totalFocusMinutes >= 60
+    ? `${Math.floor(totalFocusMinutes / 60)}H`
+    : totalFocusMinutes > 0 ? `${totalFocusMinutes}M` : '0H';
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -324,81 +453,7 @@ export default function Dashboard() {
 
         {/* ─── Today's Focus ─── */}
         <Animated.View entering={FadeInUp.duration(350).delay(120)}>
-          <View
-            style={{
-              backgroundColor: C.yellow,
-              borderWidth: 4,
-              borderColor: C.black,
-              padding: 20,
-              gap: 16,
-              // @ts-ignore
-              boxShadow: '8px 8px 0px 0px #000000',
-              transform: [{ rotate: '-0.5deg' }],
-            }}
-          >
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <View
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
-              >
-                <Target size={18} color={C.black} strokeWidth={3} />
-                <Text
-                  style={{
-                    fontWeight: '900',
-                    fontSize: 11,
-                    textTransform: 'uppercase',
-                    letterSpacing: 2.5,
-                    color: C.black,
-                  }}
-                >
-                  TODAY'S FOCUS
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  borderWidth: 3,
-                  borderColor: C.black,
-                  backgroundColor: C.red,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  transform: [{ rotate: '1.5deg' }],
-                }}
-              >
-                <Text
-                  style={{
-                    fontWeight: '900',
-                    fontSize: 9,
-                    textTransform: 'uppercase',
-                    letterSpacing: 2,
-                    color: C.white,
-                  }}
-                >
-                  ACTIVE
-                </Text>
-              </View>
-            </View>
-
-            <Text
-              style={{
-                fontWeight: '900',
-                fontSize: 26,
-                color: C.black,
-                letterSpacing: -1,
-                lineHeight: 30,
-                textTransform: 'uppercase',
-              }}
-            >
-              SHIP THE DAILY OS MVP
-            </Text>
-
-            <StartSessionButton />
-          </View>
+          <DailyGoalCard />
         </Animated.View>
 
         {/* ─── Tasks ─── */}
@@ -431,6 +486,7 @@ export default function Dashboard() {
             </View>
 
             <Pressable
+              onPress={() => router.push('/add-task')}
               style={{
                 borderWidth: 4,
                 borderColor: C.black,
