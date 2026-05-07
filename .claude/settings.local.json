@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr -i \"async-storage\\\\|reanimated\\\\|expo-router\")",
+      "Bash(Get-Content package.json)",
+      "Bash(Select-String \"async-storage|reanimated|expo-router\")"
+    ]
+  }
+}
