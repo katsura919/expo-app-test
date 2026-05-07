@@ -11,6 +11,8 @@ export default function RootLayout() {
         <TasksProvider>
           <FocusProvider>
             <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="boot" options={{ animation: 'none' }} />
+              <Stack.Screen name="energy" options={{ animation: 'none' }} />
               <Stack.Screen name="add-task" options={{ presentation: 'modal' }} />
               <Stack.Screen name="task/[id]" options={{ presentation: 'modal' }} />
             </Stack>

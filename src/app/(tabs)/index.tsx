@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { View, Text, Pressable, ScrollView, TextInput } from 'react-native';
+import { Modal, View, Text, Pressable, ScrollView, TextInput } from 'react-native';
 import {
   Check,
   Square,
@@ -12,12 +12,14 @@ import {
   Star,
   CheckSquare,
   Pencil,
+  X,
 } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState } from 'react';
 import { useTasks } from '@/store/TasksContext';
 import { useApp } from '@/store/AppContext';
 import { useFocus } from '@/store/FocusContext';
+import { daysAgo } from '@/lib/utils';
 
 const C = {
   bg: '#FFFDF5',
@@ -307,10 +309,127 @@ function StartSessionButton() {
   );
 }
 
+const ENERGY_LABELS: Record<number, string> = {
+  1: 'DRAINED',
+  2: 'LOW',
+  3: 'STEADY',
+  4: 'CHARGED',
+  5: 'MAXIMUM',
+};
+
+function WeeklyReviewModal({ visible, onDismiss }: { visible: boolean; onDismiss: () => void }) {
+  const { appState } = useApp();
+  const { tasks } = useTasks();
+  const { sessions } = useFocus();
+
+  const weekStart = daysAgo(6);
+  const tasksThisWeek = tasks.filter(
+    (t) => t.completedAt && t.completedAt.split('T')[0] >= weekStart,
+  ).length;
+  const focusMinsThisWeek = sessions
+    .filter((s) => s.completedAt && s.completedAt.split('T')[0] >= weekStart)
+    .reduce((sum, s) => sum + s.duration, 0);
+  const focusHrsWeek = focusMinsThisWeek >= 60
+    ? `${Math.floor(focusMinsThisWeek / 60)}H ${focusMinsThisWeek % 60}M`
+    : `${focusMinsThisWeek}M`;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 24 }}>
+        <View style={{
+          backgroundColor: C.bg,
+          borderWidth: 4,
+          borderColor: C.black,
+          // @ts-ignore
+          boxShadow: '8px 8px 0px 0px #FF6B6B',
+        }}>
+          {/* Header */}
+          <View style={{
+            backgroundColor: C.black,
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}>
+            <View style={{ gap: 2 }}>
+              <Text style={{ fontWeight: '900', fontSize: 10, color: C.yellow, textTransform: 'uppercase', letterSpacing: 3 }}>
+                WEEKLY REVIEW
+              </Text>
+              <Text style={{ fontWeight: '900', fontSize: 20, color: C.white, letterSpacing: -1 }}>
+                LAST 7 DAYS
+              </Text>
+            </View>
+            <Pressable onPress={onDismiss}>
+              <View style={{ borderWidth: 3, borderColor: C.white, padding: 6 }}>
+                <X size={16} color={C.white} strokeWidth={3} />
+              </View>
+            </Pressable>
+          </View>
+
+          {/* Stats */}
+          <View style={{ padding: 20, gap: 12 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1, borderWidth: 4, borderColor: C.black, backgroundColor: C.yellow, padding: 16, gap: 4, alignItems: 'center' }}>
+                <Text style={{ fontWeight: '900', fontSize: 36, color: C.black, letterSpacing: -2 }}>
+                  {tasksThisWeek}
+                </Text>
+                <Text style={{ fontWeight: '700', fontSize: 9, color: C.black, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                  TASKS DONE
+                </Text>
+              </View>
+              <View style={{ flex: 1, borderWidth: 4, borderColor: C.black, backgroundColor: C.violet, padding: 16, gap: 4, alignItems: 'center' }}>
+                <Text style={{ fontWeight: '900', fontSize: 36, color: C.black, letterSpacing: -2 }}>
+                  {appState.streak}
+                </Text>
+                <Text style={{ fontWeight: '700', fontSize: 9, color: C.black, textTransform: 'uppercase', letterSpacing: 1.5 }}>
+                  DAY STREAK
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ borderWidth: 4, borderColor: C.black, backgroundColor: C.white, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Timer size={18} color={C.black} strokeWidth={3} />
+                <Text style={{ fontWeight: '900', fontSize: 11, color: C.black, textTransform: 'uppercase', letterSpacing: 2 }}>
+                  FOCUS TIME
+                </Text>
+              </View>
+              <Text style={{ fontWeight: '900', fontSize: 24, color: C.black, letterSpacing: -1 }}>
+                {focusHrsWeek}
+              </Text>
+            </View>
+
+            {/* Dismiss */}
+            <Pressable onPress={onDismiss}>
+              {({ pressed }) => (
+                <View style={{
+                  borderWidth: 4,
+                  borderColor: C.black,
+                  backgroundColor: C.red,
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                  // @ts-ignore
+                  boxShadow: pressed ? 'none' : '4px 4px 0px 0px #000000',
+                  transform: pressed ? [{ translateX: 4 as number }, { translateY: 4 as number }] : [],
+                }}>
+                  <Text style={{ fontWeight: '900', fontSize: 13, color: C.white, textTransform: 'uppercase', letterSpacing: 2 }}>
+                    LET'S GO →
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function Dashboard() {
   const { tasks, toggleTask } = useTasks();
-  const { appState } = useApp();
-  const { totalFocusMinutes, todaySessions } = useFocus();
+  const { appState, isWeeklyReviewDue, dismissWeeklyReview, energyToday } = useApp();
+  const { totalFocusMinutes, sessions } = useFocus();
 
   const today = new Date();
   const dateStr = `${DAY_NAMES[today.getDay()]} ${today.getDate()} ${MONTH_NAMES[today.getMonth()]}`;
@@ -324,6 +443,7 @@ export default function Dashboard() {
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <WeeklyReviewModal visible={isWeeklyReviewDue} onDismiss={dismissWeeklyReview} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
@@ -370,26 +490,47 @@ export default function Dashboard() {
             </Text>
           </View>
 
-          <View
-            style={{
-              borderWidth: 3,
-              borderColor: C.black,
-              backgroundColor: C.white,
-              paddingHorizontal: 10,
-              paddingVertical: 6,
-            }}
-          >
-            <Text
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {energyToday !== undefined && (
+              <Pressable onPress={() => router.push('/energy')}>
+                <View style={{
+                  borderWidth: 3,
+                  borderColor: C.black,
+                  backgroundColor: C.violet,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                }}>
+                  <Zap size={10} color={C.black} strokeWidth={3} fill={C.black} />
+                  <Text style={{ fontWeight: '900', fontSize: 9, color: C.black, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    {energyToday}/5
+                  </Text>
+                </View>
+              </Pressable>
+            )}
+            <View
               style={{
-                fontWeight: '900',
-                fontSize: 11,
-                color: C.black,
-                textTransform: 'uppercase',
-                letterSpacing: 1,
+                borderWidth: 3,
+                borderColor: C.black,
+                backgroundColor: C.white,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
               }}
             >
-              {dateStr}
-            </Text>
+              <Text
+                style={{
+                  fontWeight: '900',
+                  fontSize: 11,
+                  color: C.black,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1,
+                }}
+              >
+                {dateStr}
+              </Text>
+            </View>
           </View>
         </Animated.View>
 

@@ -15,11 +15,18 @@ interface AppContextValue {
   appState: AppState;
   isLoading: boolean;
   todayGoal: DailyGoal | null;
+  energyToday: number | null;
+  needsBoot: boolean;
+  needsEnergyCheckIn: boolean;
+  isWeeklyReviewDue: boolean;
   setOnboardingDone: () => Promise<void>;
   updateAppState: (patch: Partial<AppState>) => Promise<void>;
   checkStreak: () => void;
   setTodayGoal: (text: string) => Promise<void>;
   completeTodayGoal: () => Promise<void>;
+  setBootDone: () => Promise<void>;
+  setEnergyLevel: (level: number) => Promise<void>;
+  dismissWeeklyReview: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -45,17 +52,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await updateAppState({ onboardingDone: true });
   }
 
-  // Streak freeze: miss 1 day → streak preserved. Miss 2+ days → reset.
+  // Streak freeze: miss 1 day → streak preserved. Miss 2+ days → reset to 1.
   function checkStreak() {
     const t = today();
     if (appState.lastActiveDate === t) return;
-
     const twoDaysAgo = daysAgo(2);
     const newStreak =
       appState.lastActiveDate && appState.lastActiveDate >= twoDaysAgo
         ? appState.streak + 1
         : 1;
-
     updateAppState({ streak: newStreak, lastActiveDate: t });
   }
 
@@ -78,7 +83,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await updateAppState({ dailyGoals });
   }
 
-  const todayGoal = appState.dailyGoals.find((g) => g.date === today()) ?? null;
+  async function setBootDone() {
+    await updateAppState({ lastBootDate: today() });
+  }
+
+  async function setEnergyLevel(level: number) {
+    await updateAppState({ energyLevel: level, energyDate: today() });
+  }
+
+  async function dismissWeeklyReview() {
+    await updateAppState({ lastWeeklyReviewDate: today() });
+  }
+
+  const t = today();
+  const todayGoal = appState.dailyGoals.find((g) => g.date === t) ?? null;
+  const energyToday =
+    appState.energyDate === t ? (appState.energyLevel ?? null) : null;
+  const needsBoot = appState.lastBootDate !== t;
+  const needsEnergyCheckIn = appState.energyDate !== t;
+  const isWeeklyReviewDue =
+    new Date().getDay() === 0 && appState.lastWeeklyReviewDate !== t;
 
   return (
     <AppContext.Provider
@@ -86,11 +110,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         appState,
         isLoading,
         todayGoal,
+        energyToday,
+        needsBoot,
+        needsEnergyCheckIn,
+        isWeeklyReviewDue,
         setOnboardingDone,
         updateAppState,
         checkStreak,
         setTodayGoal,
         completeTodayGoal,
+        setBootDone,
+        setEnergyLevel,
+        dismissWeeklyReview,
       }}
     >
       {children}

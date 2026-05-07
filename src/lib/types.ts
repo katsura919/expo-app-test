@@ -30,4 +30,8 @@ export interface AppState {
   lastActiveDate: string;
   totalFocusMinutes: number;
   dailyGoals: DailyGoal[];
+  lastBootDate?: string;
+  energyLevel?: number;
+  energyDate?: string;
+  lastWeeklyReviewDate?: string;
 }
