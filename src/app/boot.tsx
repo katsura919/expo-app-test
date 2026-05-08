@@ -30,6 +30,7 @@ export default function Boot() {
   useEffect(() => {
     let idx = 0;
     const id = setInterval(() => {
+      if (idx >= LINES.length) return;
       setLines((prev) => [...prev, LINES[idx]]);
       idx += 1;
       if (idx >= LINES.length) {
@@ -89,9 +90,9 @@ export default function Boot() {
       {/* Terminal lines */}
       <View style={{ gap: 6 }}>
         {lines.map((line, i) => {
-          const isHeader = !line.startsWith('>');
-          const isOk = line.endsWith('OK');
-          const isReady = line.includes('SYSTEM ONLINE');
+          const isHeader = !line?.startsWith('>');
+          const isOk = !!line?.endsWith('OK');
+          const isReady = !!line?.includes('SYSTEM ONLINE');
 
           return (
             <Text
